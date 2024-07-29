@@ -1,0 +1,249 @@
+---
+title: "HW3 Statistics Foundation"
+author: "Takayedza Mashoko"
+date: "2023-11-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(GLMsData)
+library(statmod)
+library(MASS)
+library(ISLR2)
+library(car)
+library(leaps)
+library(msm)
+library(tidyverse)
+```
+
+# Question 1
+
+```{r}
+
+# Load data
+real_estate_valuation_data<- read_csv("real-estate-valuation-data-set.csv", show_col_types = FALSE)
+# Fit the multiple linear regression
+lm_q1 <- lm(
+  unit_price ~ convenience_stores + log(distance),
+  data = real_estate_valuation_data
+)
+
+summary(lm_q1)
+```
+
+
+# Question 2: Standardized residuals against the convenience_stores.
+
+
+```{r}
+lm_q1_std_residuals <- rstandard(lm_q1)
+scatter.smooth(
+  lm_q1_std_residuals ~ real_estate_valuation_data$convenience_stores,
+  col = "grey",
+  las = 1,
+  ylab = "Standardized residuals",
+  xlab = "convenience_stores"
+)
+
+```
+
+
+On this plot we have the residuals as response plotted against the predictor convenience stores variable. The plot is slightly non-linear. It can be observed that a slight curve and the residuals are not evenly distributed on the fit line. We conclude that the model is not that strong and needs to be improved.
+
+# Question 3: Plot the standardized residuals of this model against the predictor
+
+
+```{r}
+# logarithm of distance
+
+scatter.smooth(
+  lm_q1_std_residuals ~ log(real_estate_valuation_data$distance),
+  col = "grey",
+  las = 1,
+  ylab = "Standardized residuals",
+  xlab = "Log(distance)"
+)
+```
+
+With a slight improvement the plot is still non-linear. The residuals plotted against the explanatory variable “logarithm of distance” still appear slightly non-linear. the residuals variability are not constant. This may mean that that the model can be improved.
+
+# Question 4
+
+```{r}
+
+real_estate_valuation_data_fitted <- fitted(lm_q1)
+lm_q1_std_residuals <- rstandard(lm_q1)
+scatter.smooth(
+  lm_q1_std_residuals ~ real_estate_valuation_data_fitted,
+  col = "grey",
+  las = 1,
+  ylab = "Standardized residuals",
+  xlab = "Fitted values"
+)
+
+```
+
+There is a little improvement towards achieving linearity. The model is nevertheless still nonlinear. We can see an irregular dispersion of the residuals along the line on the plot. The model diagnostic does not show a big issue of linearity, but the diagnostic can suggest an improvement of the model.
+
+# Question 5
+
+```{r}
+# Fit the linear regression model with a specified family
+
+glm_q1 <- glm(unit_price ~ convenience_stores + log(distance), data = real_estate_valuation_data, family = gaussian)
+
+# Calculate the quasi-residuals
+real_estate_valuation_data_model_q_resid <- qresid(glm_q1)
+
+# QQ plot of the quasi-residuals
+qqnorm(real_estate_valuation_data_model_q_resid, las = 1, pch = 19, cex.lab = 1.5)
+qqline(real_estate_valuation_data_model_q_resid, lty = "dashed")
+
+```
+
+
+The residual points in the both tails of the quantile-quantile plot of the standardized model do not lie on the straight line. The plot appears to have heavier tails than the normal distribution at left and right. We can distinguish the residuals curve above the line at the upper right and lower left of the line. These observations may suggest that the model can be improved.
+
+# Question 6: Box-Cox method
+
+
+```{r}
+
+# Run Box-Cox transformation
+boxcox_model <- boxcox(unit_price ~ convenience_stores + log(distance), data = real_estate_valuation_data)
+
+
+```
+
+
+```{r}
+#  Optimal Lambda
+lambda <- boxcox_model$x[which.max(boxcox_model$y)]
+cat("Optimal Lambda is:",lambda, "\n")
+```
+
+# Question 7:
+
+```{r}
+# Transform the response variable (unit_price) using the Box-Cox transformation
+transformed_unit_price <- real_estate_valuation_data$unit_price^lambda
+
+# Create a data frame with the transformed response variable and predictor variables
+model_data <- data.frame(
+  transformed_unit_price = transformed_unit_price,
+  convenience_stores = real_estate_valuation_data$convenience_stores,
+  log_distance = log(real_estate_valuation_data$distance)
+)
+
+# Fit a multiple linear regression model
+model_boxcox <- lm(transformed_unit_price ~ convenience_stores + log_distance, data = model_data)
+
+# Print the summary of the linear regression model
+summary(model_boxcox)
+
+```
+
+
+# Question 8
+
+
+```{r}
+# Scatterplot of residuals vs. fitted values
+plot(model_boxcox, which = 1)
+```
+
+We observe that residuals against the fitted values of unit price plot are not evenly spread around the straight line and the variability of the residuals is not higher. There is a slight curve close to the straight line. This indicate that the model can still
+be worked on and improved.
+
+
+```{r}
+
+# Q-Q plot of residuals
+plot(model_boxcox, which = 2)
+
+```
+
+
+
+# Question 9
+
+```{r}
+influence_measures <- influence.measures(model_boxcox)
+summary(influence_measures)
+```
+
+
+Interpretation: All observations for the dffit are less than one. Hence no influential observation.
+
+# Question 10
+
+
+```{r}
+data(germ)
+logistic_model <- glm(
+  Germ / Total ~ Extract + Seeds,
+  weights = Total,
+  family = "binomial",
+  data = germ
+)
+
+summary(logistic_model)
+
+```
+
+# Question 11
+
+## Question 11-1
+
+Based on the logistic regression model summary of germination, we can see that for the explanatory variable Seeds, the baseline category is "OA73" and for the explanatory variable Extract the baseline is "Bean"
+
+# Question 11.2. Odds of germination for the baseline combination:
+
+```{r}
+odds_baseline <- exp(coef(logistic_model)[1])
+print(odds_baseline)
+```
+
+interpretation : When the predictors Extract and Seeds are equal to 0, we estimate the odds of the response variable which is germination Y = 1 to be relatively equal 0.496
+
+# Question 11.3 : odds of germination for extracts of type Cucumber and seed of type 0A73
+
+```{r}
+# Coefficient for the regression
+coef_cucumber <- 1.0647
+
+# Convert log odds ratio to odds ratio
+
+odds_ratio_cucumber <- exp(coef_cucumber)
+print(odds_ratio_cucumber)
+
+```
+
+The Extract cucumber has a coefficient of 1.06.  This shows that t there is a positive statistical association between the Extract cucumber and the odd of germination for extracts of type cucumber and seed type 0A73 compared to the baseline odds combination of Extract and Seeds. We estimate that a unit increase in the extracts of type Cucumber will result in a multiplicative increase in the odds of germination, which is approximately equal to 2.89, all else being equal.
+
+# Question 11.4
+
+```{r}
+# Coefficient for Seeds OA75 from the summary model
+coef_0A75 <- 0.2705
+
+# Convert log odds ratio to odds ratio
+odds_ratio_0A75 <- exp(coef_0A75)
+print(odds_ratio_0A75)
+```
+
+The seed of type 0A75 has a coefficient of 0.27. A positive statistical association between the seed of type 0A75 and the odds of germination can be observed. This suggests that a unit increase in the seed of type 0A75 results in a multiplicative increase in the odds of germination which is equal to 1.31, all else being equal.
+
+
+# Question 11.5
+
+```{r}
+#  individual odds ratios
+odds_ratio_cucumber <- exp(coef_cucumber)
+odds_ratio_0A75 <- exp(coef_0A75)
+
+#  combined odds ratio
+combined_odds_ratio <- odds_ratio_cucumber * odds_ratio_0A75
+print(combined_odds_ratio)
+```
+
